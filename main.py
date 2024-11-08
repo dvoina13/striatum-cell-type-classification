@@ -58,7 +58,7 @@ torch.backends.cudnn.benchmark = False
 spike_trains_, cell_types, running_speeds_, spike_trains_permuted, loaded_average_spikes, experiments, loaded_dict, all_nwb_paths = load_data_spike_trains_cells_speed()
 Graph_all, Directed_Graph_all, edge_weights, edge_weights2, ind_0, ind_1, indices_for_new_session, mice = load_graph(all_nwb_paths, loaded_dict, cell_types)
 clustering_data, filt_waveforms, filt_isis, filt_firing_rates, spike_filters, running_filters, cell_types__, ISI_features = load_filters_waveforms_isis()
-x = np.concatenate((filt_isis, np.array(running_filters)), axis = 1)
+x = np.array(filt_isis) #np.concatenate((filt_isis, np.array(running_filters)), axis = 1)
 
 #ind_train, ind_test
 labeled_ind = np.where(cell_types != -10)[0]
@@ -95,5 +95,5 @@ train_loss, train_acc, test_score, test_acc, ignore, outputs = test(model, train
 
 
 out_test, pred, batch_y = outputs
-experiment = 29
+experiment = 35
 save_solution(experiment, score_all, train_loss, train_acc, test_score, test_acc, ind_train, ind_test, ind_train_with_session, ind_test_with_session, out_test, pred, batch_y, batch_size, hp, with_weighing, seed)

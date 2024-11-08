@@ -21,5 +21,6 @@ for s in "${seed_arr[@]}"
 do
     echo $s
     #python GNN_classify_test.py --seed=$seed
-    python main.py --seed=$s
+    #python main.py --seed=$s
+    python main_sparsityLayer.py --seed=$s
 done

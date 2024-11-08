@@ -218,7 +218,7 @@ def load_graph(all_nwb_paths, loaded_dict, cell_types):
 def load_filters_waveforms_isis():
 
             spike_filters = np.load("spike_filters.npy")
-            running_filters = np.load("running_filters.npy")
+            running_filters_ = np.load("running_filters.npy")
             
             data = np.load('all_good_units.npz', allow_pickle=True)
             waveforms = data['all_waveforms']
@@ -237,7 +237,8 @@ def load_filters_waveforms_isis():
             
             cell_type_labels = {'D1' : 0,
                                 'D2' : 1}
-            
+
+            running_filters = []
             filt_waveforms = []
             filt_isis = []
             filt_firing_rates = []
@@ -266,14 +267,15 @@ def load_filters_waveforms_isis():
             time_bins = list(np.arange(0,100,1))
             time_bins.append(ISIs_max)
             time_bins = np.array(time_bins)
-            
+            running_bins = list(np.arange(np.percentile(running_filters_, 5), np.percentile(running_filters_, 95), (np.percentile(running_filters_, 95) -  np.percentile(running_filters_, 5))/100))
+    
             for ind_cell in range(len(cell_types_)):
             
                 this_waveform = waveforms[ind_cell]
                 this_spike_times = all_spike_times[ind_cell]
                 peak = np.min(this_waveform)
                 peak_ind = np.where(this_waveform==peak)
-                   
+                
                 # unit not too close to tip and enough spikes to make good isi hist
                 if (peak_ind[0][0] >= 10) and (len(this_spike_times) > 500) and (tagged_inds[ind_cell]):
                     ind_select.append(ind_cell)
@@ -299,7 +301,8 @@ def load_filters_waveforms_isis():
                 else:
                     h,v = np.histogram(ISIs, time_bins, density=True)
                 filt_isis.append(h)
-            
+                running_filters.append(np.histogram(running_filters_[ind_cell,:], running_bins, density = True)[0])
+
                 filt_firing_rates.append(all_firing_rate[ind_cell])
                 filt_type.append(cell_types_[ind_cell]) 
                 ISI_features.append(ISIs)
@@ -309,7 +312,8 @@ def load_filters_waveforms_isis():
             #clustering_data =  np.array(spike_trains_)
             filt_type = np.array(filt_type)
             filt_isis = np.array(filt_isis)
-
+            running_filters = np.array(running_filters)
+    
             return clustering_data, filt_waveforms, filt_isis, filt_firing_rates, spike_filters, running_filters, cell_types_, ISI_features
 
 
@@ -341,7 +345,19 @@ def load_graph_DataLoader(cell_types, full_data, seed):
             #worker_init_fn=seed_worker, 
             #generator=g
             
-        
+
+        input_nodes = torch.tensor(all_nodes[full_data.val_mask].tolist()).type(torch.LongTensor)
+
+        valid_loader = NeighborLoader(
+            full_data,
+            num_neighbors=[30] * 2,
+            batch_size=batch_size,
+            input_nodes=input_nodes)
+            #num_workers=4,
+            #worker_init_fn=seed_worker, 
+            #generator=g
+            
+         
         input_nodes = torch.tensor(all_nodes[full_data.test_mask].tolist()).type(torch.LongTensor)
         
         test_loader = NeighborLoader(
@@ -353,9 +369,7 @@ def load_graph_DataLoader(cell_types, full_data, seed):
             #worker_init_fn=seed_worker, 
             #generator=g
         
-
-        
-        return train_loader, train_loader2, test_loader, batch_size
+        return train_loader, train_loader2, valid_loader, test_loader, batch_size
         
                     
 def data_loader(x, cell_types, train_mask, test_mask_labeled, seed):

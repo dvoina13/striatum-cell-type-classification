@@ -4,14 +4,17 @@ from datetime import datetime
 import os
 import pickle
 import random
+from utils_sparseLayer import BinaryMask, BinaryGates, ConcreteSelector
 
-def indices_train_test(ind_0, ind_1, cell_types, spike_trains_, indices_to_look_for, indices_to_look_for2, labeled_ind, unlabeled_ind, seed):
+def indices_train_test(ind_0, ind_1, cell_types, spike_trains_, indices_to_look_for, indices_to_look_for2, labeled_ind, unlabeled_ind, include_valid, seed):
 
             np.random.seed(seed)
             random.seed(seed)
 
             ind_test = []
             ind_test_with_session = []
+            ind_valid = []
+            ind_valid_with_session = []
             class_choice = 1
             ind_ = [0, 0]
 
@@ -28,33 +31,68 @@ def indices_train_test(ind_0, ind_1, cell_types, spike_trains_, indices_to_look_
                 if dead in labeled_ind:
                     dead_and_labeled.append(dead)
             
-            while len(ind_test)<=45:
-                if class_choice == 0:
-                    ind_test += ind_0_permuted[ind_[0]]
-                    ind_test_with_session.append(ind_0_permuted[ind_[0]])
-                    ind_[0] += 1
-                    class_choice = 1
-                else:
-                    ind_test += ind_1_permuted[ind_[1]]
-                    ind_test_with_session.append(ind_1_permuted[ind_[1]])
-                    ind_[1] += 1
-                    class_choice = 0
             
-            ind_train = [ind for ind in labeled_ind if (ind not in ind_test)] #and (ind not in ind_valid)]
-            ind_train_with_session = [ind_coeff for ind_coeff in ind_0 + ind_1 if ind_coeff not in ind_test_with_session]
-            #ind_train = ind_train + ind_test    
+            if include_valid == False:
+                while len(ind_test)<=45:
+                    if class_choice == 0:
+                        ind_test += ind_0_permuted[ind_[0]]
+                        ind_test_with_session.append(ind_0_permuted[ind_[0]])
+                        ind_[0] += 1
+                        class_choice = 1
+                    else:
+                        ind_test += ind_1_permuted[ind_[1]]
+                        ind_test_with_session.append(ind_1_permuted[ind_[1]])
+                        ind_[1] += 1
+                        class_choice = 0
+            
+            else:
+                
+                while len(ind_valid)<=25:
+                    if class_choice == 0:
+                        ind_valid += ind_0_permuted[ind_[0]]
+                        ind_valid_with_session.append(ind_0_permuted[ind_[0]])
+                        ind_[0] += 1
+                        class_choice = 1
+                    else:
+                        ind_valid += ind_1_permuted[ind_[1]]
+                        ind_valid_with_session.append(ind_1_permuted[ind_[1]])
+                        ind_[1] += 1
+                        class_choice = 0
+                        
+                while len(ind_test)<=35:
+                    if class_choice == 0:
+                        ind_test += ind_0_permuted[ind_[0]]
+                        ind_test_with_session.append(ind_0_permuted[ind_[0]])
+                        ind_[0] += 1
+                        class_choice = 1
+                    else:
+                        ind_test += ind_1_permuted[ind_[1]]
+                        ind_test_with_session.append(ind_1_permuted[ind_[1]])
+                        ind_[1] += 1
+                        class_choice = 0
+                        
+                        
+                        
+            ind_train = [ind for ind in labeled_ind if ((ind not in ind_test) and (ind not in ind_valid))]
+            ind_train_with_session = [ind_coeff for ind_coeff in ind_0 + ind_1 if (ind_coeff not in ind_test_with_session) and (ind_coeff not in ind_valid_with_session)]
             
             for ind_no in dead_and_labeled:
                 if ind_no in ind_train:
                     ind_train.remove(ind_no)
                 if ind_no in ind_test:
                     ind_test.remove(ind_no)
-            
+                if ind_no in ind_valid:
+                    ind_valid.remove(ind_no)
+                    
                 for l in ind_train_with_session:
                     if ind_no in l:
                         l.remove(ind_no)
             
                 for l in ind_test_with_session:
+                    if ind_no in l:
+                        l.remove(ind_no)
+                        
+                for l in ind_valid_with_session:
                     if ind_no in l:
                         l.remove(ind_no)
 
@@ -81,19 +119,22 @@ def indices_train_test(ind_0, ind_1, cell_types, spike_trains_, indices_to_look_
             num_total = len(cell_types)
             
             train_idx = ind_train;
-            test_idx = ind_test
+            test_idx = ind_test;
+            valid_idx = ind_valid;
             #ind_valid #indices[:split], indices[split:] #
             test_idx_labeled = test_idx.copy()
             test_idx = list(test_idx_labeled) + list(unlabeled_ind)
             
             train_mask = torch.tensor([False]*num_total)
             train_mask[train_idx] = True
+            valid_mask = torch.tensor([False]*num_total)
+            valid_mask[valid_idx] = True
             test_mask = torch.tensor([False]*num_total)
             test_mask[test_idx] = True
             test_mask_labeled = torch.tensor([False]*num_total)
             test_mask_labeled[test_idx_labeled] = True
 
-            return ind_train, ind_train_with_session, ind_test, ind_test_with_session, ind_0_sum_train, ind_1_sum_train, train_mask, test_mask, test_mask_labeled
+            return ind_train, ind_train_with_session, ind_valid, ind_valid_with_session, ind_test, ind_test_with_session, ind_0_sum_train, ind_1_sum_train, train_mask, valid_mask, test_mask, test_mask_labeled
 
 
 
@@ -117,7 +158,121 @@ def weighing(cell_types, train_mask):
 
 
 
-def save_solution(n_experiment, score_all, train_loss, train_acc, test_score, test_acc, ind_train, ind_test, ind_train_with_session, ind_test_with_session, out_test, pred, batch_y, batch_size, hp, with_weighing, seed):
+
+###functions from persist
+def modified_secant_method(x0, y0, y1, x, y):
+    '''
+    A modified version of secant method, used here to determine the correct lam
+    value. Note that we use x = lam and y = 1 / (1 + num_remaining) rather than
+    y = num_remaining, because this gives better results.
+
+    The standard secant method uses the two previous points to calculate a
+    finite difference rather than an exact derivative (as in Newton's method).
+    Here, we used a robustified derivative estimator: we find the curve,
+    which passes through the most recent point (x0, y0), that minimizes a
+    weighted least squares loss for all previous points (x, y). This improves
+    robustness to nearby guesses (small |x - x'|) and noisy evaluations.
+
+    Args:
+      x0: most recent x.
+      y0: most recent y.
+      y1: target y value.
+      x: all previous xs.
+      y: all previous ys.
+    '''
+    # Get robust slope estimate.
+    weights = 1 / np.abs(x - x0)
+    slope = (
+        np.sum(weights * (x - x0) * (y - y0)) /
+        np.sum(weights * (x - x0) ** 2))
+
+    # Clip slope to minimum value.
+    slope = np.clip(slope, a_min=1e-6, a_max=None)
+
+    # Guess x1.
+    x1 = x0 + (y1 - y0) / slope
+    return x1
+
+
+def input_layer_penalty(input_layer, m):
+    if isinstance(input_layer, BinaryGates):
+        return torch.mean(torch.sum(m, dim=1))
+    else:
+        raise ValueError('only BinaryGates layer has penalty')
+        
+        
+def input_layer_fix(input_layer):
+    '''Fix collisions in the input layer.'''
+    required_fix = False
+
+    if isinstance(input_layer, (BinaryMask, ConcreteSelector)):
+        # Extract logits.
+        logits = input_layer._logits
+        argmax = torch.argmax(logits, dim=1).cpu().data.numpy()
+
+        # Locate collisions and reinitialize.
+        for i in range(len(argmax) - 1):
+            if argmax[i] in argmax[i+1:]:
+                required_fix = True
+                logits.data[i] = torch.randn(
+                    logits[i].shape, dtype=logits.dtype, device=logits.device)
+        return required_fix
+
+    return required_fix
+
+  
+def input_layer_summary(input_layer, n_samples=256):
+    '''Generate summary string for input layer's convergence.'''
+    with torch.no_grad():
+        if isinstance(input_layer, BinaryMask):
+            m = input_layer.sample(n_samples)
+            mean = torch.mean(m, dim=0)
+            sorted_mean = torch.sort(mean, descending=True).values
+            relevant = sorted_mean[:input_layer.num_selections]
+            return 'Max = {:.2f}, Mean = {:.2f}, Min = {:.2f}'.format(
+                relevant[0].item(), torch.mean(relevant).item(),
+                relevant[-1].item())
+
+        elif isinstance(input_layer, ConcreteSelector):
+            M = input_layer.sample(n_samples)
+            mean = torch.mean(M, dim=0)
+            relevant = torch.max(mean, dim=1).values
+            return 'Max = {:.2f}, Mean = {:.2f}, Min = {:.2f}'.format(
+                torch.max(relevant).item(), torch.mean(relevant).item(),
+                torch.min(relevant).item())
+
+        elif isinstance(input_layer, BinaryGates):
+            m = input_layer.sample(n_samples)
+            mean = torch.mean(m, dim=0)
+            dist = torch.min(mean, 1 - mean)
+            return 'Mean dist = {:.2f}, Max dist = {:.2f}, Num sel = {}'.format(
+                torch.mean(dist).item(),
+                torch.max(dist).item(),
+                int(torch.sum((mean > 0.5).float()).item()))
+        
+
+def input_layer_converged(input_layer, tol=1e-2, n_samples=256):
+    '''Determine whether the input layer has converged.'''
+    with torch.no_grad():
+        if isinstance(input_layer, BinaryMask):
+            m = input_layer.sample(n_samples)
+            mean = torch.mean(m, dim=0)
+            return (
+                torch.sort(mean).values[-input_layer.num_selections].item()
+                > 1 - tol)
+
+        elif isinstance(input_layer, BinaryGates):
+            m = input_layer.sample(n_samples)
+            mean = torch.mean(m, dim=0)
+            return torch.max(torch.min(mean, 1 - mean)).item() < tol
+
+        elif isinstance(input_layer, ConcreteSelector):
+            M = input_layer.sample(n_samples)
+            mean = torch.mean(M, dim=0)
+            return torch.min(torch.max(mean, dim=1).values).item() > 1 - tol
+        
+        
+def save_solution(n_experiment, score_all, train_loss, train_acc, test_score, test_acc, ind_train, ind_test, ind_train_with_session, ind_test_with_session, out_test, pred, batch_y, batch_size, hp, with_weighing, seed, true_inds=None):
 
             now = datetime.now()
             dt_string = now.strftime("%d_%m_%Y_%H_%M")
@@ -145,7 +300,7 @@ def save_solution(n_experiment, score_all, train_loss, train_acc, test_score, te
             
             details = {}
             details["seed"] = seed
-            details["features"] = "isis + running filts"
+            details["features"] = "isi histogram + sparsityLayer"
             details["n_features"] = 100
             details["use_graph"] = True
             details["use_directed_graph"] = True
@@ -155,7 +310,7 @@ def save_solution(n_experiment, score_all, train_loss, train_acc, test_score, te
             
             details["use_edge_ccg"] = False
             details["batchsize"] = batch_size
-            details["num_neighbors"] = "[30]*2"
+            details["num_neighbors"] = "[30]*2 (all neighbors)"
             details["num_neighbors_details"] = "for all"
             details["data loader"] = "NeighborLoader"
             details["model"] = "GraphSAGE"
@@ -171,7 +326,8 @@ def save_solution(n_experiment, score_all, train_loss, train_acc, test_score, te
             details["with_weighing"] = with_weighing
             details["w"] = None
             details["weights_per_class_"] = None
-                
+            details["true_inds"] = true_inds
+            
             file = folder + '/meta_dict.pkl'
             with open(file, 'wb') as f:
                 pickle.dump(details, f)
