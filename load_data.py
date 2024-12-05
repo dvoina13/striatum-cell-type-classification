@@ -75,7 +75,7 @@ def load_data_spike_trains_cells_speed():
                 loaded_spikes = np.squeeze(loaded_dict[ind]["spike_trains"])
                 running_speed = np.squeeze(loaded_dict[ind]["running_speed"])
                 
-                print(loaded_spikes.shape)
+                print("loaded_spikes.shape", loaded_spikes.shape)
                 loaded_spikes_coarse = []
                 running_speed_coarse = []
                 for i in range(int(loaded_spikes.shape[1]/interval)):
@@ -133,6 +133,141 @@ def load_data_spike_trains_cells_speed():
 
 
             return spike_trains_, cell_types, running_speeds_, spike_trains_permuted, loaded_average_spikes, experiments, loaded_dict, all_nwb_paths
+
+
+
+
+def load_data_spike_trains_split_timeseries_cells_speed():
+    
+            mouse_list = ['642481', '648843', '642481', '642480', '642478', '655571', '642480', '655568', '642478', '655568', '666721', '661398', '648845', '661398', '655572', '655565', '666721']
+            all_nwb_paths = ['ecephys_642481_2023-01-24_13-18-13_nwb',
+             'ecephys_648843_2023-02-22_13-55-39_nwb',
+             'ecephys_642481_2023-01-25_11-33-13_nwb',
+             'ecephys_642480_2023-01-26_17-06-40_nwb',
+             'ecephys_642478_2023-01-17_14-38-38_nwb',
+             'ecephys_655571_2023-05-09_13-53-48_nwb',
+             'ecephys_642480_2023-01-25_12-20-15_nwb',
+             'ecephys_655568_2023-05-03_15-21-12_nwb',
+             'ecephys_642478_2023-01-11_11-02-09_nwb',
+             'ecephys_655568_2023-05-01_15-26-47_nwb',
+             'ecephys_666721_2023-05-12_16-15-36_nwb',
+             'ecephys_661398_2023-03-31_17-01-09_nwb',
+             'ecephys_648845_2023-02-23_14-27-33_nwb',
+             'ecephys_661398_2023-04-03_15-47-29_nwb',
+             'ecephys_655572_2023-05-09_15-03-29_nwb',
+             'ecephys_655565_2023-03-31_14-47-36_nwb',
+             'ecephys_666721_2023-05-09_11-01-03_nwb']
+            
+            
+            with open('saved_dictionary.pkl', 'rb') as f:
+                loaded_dict = pickle.load(f)
+            
+            mice_ids = np.arange(len(loaded_dict))
+            spike_trains = []
+            cell_types = []
+            
+            for ind in range(len(mouse_list)):
+                
+                spike_trains.append(np.squeeze(loaded_dict[ind]["spike_trains"]))
+                cell_types += loaded_dict[ind]["cell_types"]
+            
+            spike_trains = np.vstack(spike_trains)
+            print("spike_trains shape", spike_trains.shape)
+            
+            spike_trains_ = []
+            running_speeds_ = []
+            spike_trains_permuted = []
+            cell_types = []
+            loaded_average_spikes = []
+            experiments = []
+            
+            bins = 200
+            T = spike_trains.shape[1]
+            interval0 = 50
+            interval = int(T//(bins*interval0))
+            interval_run = int(len(loaded_dict[ind]["running_speed"])//(bins))
+            bins_permuted = np.random.permutation(np.arange(bins-1))
+    
+            for ind in range(len(mouse_list)):
+                print("MOUSE", ind)
+                cell_types_ = loaded_dict[ind]["cell_types"]
+                for j in range(len(cell_types_)):
+                    if cell_types_[j] == "D1":
+                        cell_types.append(0)
+                    elif cell_types_[j] == "D2":
+                        cell_types.append(1)
+                    else:    
+                        cell_types.append(-10)
+
+                experiments += [ind]*len(cell_types_);
+                loaded_spikes = np.squeeze(loaded_dict[ind]["spike_trains"])
+                running_speed = np.squeeze(loaded_dict[ind]["running_speed"])
+                
+                loaded_spikes_coarse_ = []
+                for i in range(int(loaded_spikes.shape[1]/interval0)):
+                    loaded_spikes_coarse_.append(loaded_spikes[:,i*interval0:(i+1)*interval0].sum(1))
+                loaded_spikes_coarse_ = np.vstack(loaded_spikes_coarse_)
+                      
+                loaded_spikes_coarse = []
+                running_speed_coarse = []
+                for i in range(len(cell_types_)):
+                    loaded_spikes_coarse.append(loaded_spikes_coarse_[bins_permuted[i]*interval:(bins_permuted[i]+1)*interval,i])
+                    running_speed_coarse.append(running_speed[bins_permuted[i]*interval_run:(bins_permuted[i]+1)*interval_run])
+
+                loaded_spikes_coarse = np.array(loaded_spikes_coarse)
+                #loaded_spikes_coarse = np.transpose(loaded_spikes_coarse, (1,0)).squeeze()
+                running_speed_coarse = np.array(running_speed_coarse)
+                #running_speed_coarse = np.transpose(running_speed_coarse, (1,0)).squeeze()
+
+                #create partitions
+                loaded_spikes_coarse_permuted = []
+                loaded_average_spikes_ = []
+                num_div = 6115
+                T_len = np.array(loaded_spikes_coarse).shape[1]; div = int(T_len//num_div)
+                print(T_len, num_div, div)
+                partitions = [div*k for k in range(num_div)]
+                for j in range(len(cell_types_)):
+                        loaded_spikes_coarse[j,:] = loaded_spikes_coarse[j,:]#/loaded_spikes_coarse.max()#(loaded_spikes_coarse[j,:] - loaded_spikes_coarse[j, :].mean())/loaded_spikes_coarse[j, :].std()**2
+            
+                        spike_count = []
+                        for spikes in range(54):
+                            spike_count.append(len(np.where(loaded_spikes_coarse[j,:] == spikes)[0]))
+            
+                        loaded_average_spikes_.append(np.array(spike_count))
+                    
+                        partitions = np.random.permutation(partitions)
+                        spikes_coarse_temp = []
+                        
+                        if div == 1:
+                            spikes_coarse_temp = loaded_spikes_coarse[j, partitions]
+                        else:
+                            for p in partitions:
+                                spikes_coarse_temp += list(loaded_spikes_coarse[j, p:p+div])
+                        
+                        spikes_coarse_temp = np.array(spikes_coarse_temp)
+                        loaded_spikes_coarse_permuted.append(spikes_coarse_temp)
+                
+                loaded_average_spikes.append(loaded_average_spikes_)    
+                loaded_spikes_coarse_permuted = np.array(loaded_spikes_coarse_permuted)
+            
+                running_speeds_.append(np.expand_dims(running_speed_coarse, axis=1))
+                print(np.expand_dims(running_speed_coarse, axis=1).shape)
+                spike_trains_.append(loaded_spikes_coarse)
+                spike_trains_permuted.append(loaded_spikes_coarse_permuted)
+
+            #print("running_speeds_!!", running_speeds_[-1].shape, running_speeds_[-2].shape)
+            cell_types = np.array(cell_types)
+            spike_trains_ = np.concatenate(spike_trains_, axis=0)
+            running_speeds_ = np.concatenate(running_speeds_, axis = 0)
+
+            spike_trains_permuted = np.vstack(spike_trains_permuted)
+            loaded_average_spikes = np.vstack(loaded_average_spikes)
+            experiments = np.array(experiments)
+
+
+            return spike_trains_, cell_types, running_speeds_, spike_trains_permuted, loaded_average_spikes, experiments, loaded_dict, all_nwb_paths
+
+
 
 
 def load_graph(all_nwb_paths, loaded_dict, cell_types):
@@ -227,7 +362,8 @@ def load_filters_waveforms_isis():
             unique_types, all_type_counts = np.unique(cell_types_, return_counts=True)
             all_spike_times = data['all_spike_times']
             all_firing_rate = data['all_firing_rates']
-            
+
+            print("how long is all_spike_times?", all_spike_times.shape)
             tagged_inds = (cell_types_!='untagged') & (cell_types_!='ChAt') # no chat because there's so few
             ind_tagged = np.where(tagged_inds)[0]
             tagged_waveforms = waveforms[tagged_inds]
@@ -317,7 +453,7 @@ def load_filters_waveforms_isis():
             return clustering_data, filt_waveforms, filt_isis, filt_firing_rates, spike_filters, running_filters, cell_types_, ISI_features
 
 
-def load_graph_DataLoader(cell_types, full_data, seed):
+def load_graph_DataLoader(cell_types, full_data, include_valid, seed):
 
         g = torch.Generator()
         g.manual_seed(seed)
@@ -346,16 +482,17 @@ def load_graph_DataLoader(cell_types, full_data, seed):
             #generator=g
             
 
-        input_nodes = torch.tensor(all_nodes[full_data.val_mask].tolist()).type(torch.LongTensor)
+        if include_valid:
+            input_nodes = torch.tensor(all_nodes[full_data.val_mask].tolist()).type(torch.LongTensor)
 
-        valid_loader = NeighborLoader(
-            full_data,
-            num_neighbors=[30] * 2,
-            batch_size=batch_size,
-            input_nodes=input_nodes)
-            #num_workers=4,
-            #worker_init_fn=seed_worker, 
-            #generator=g
+            valid_loader = NeighborLoader(
+                full_data,
+                num_neighbors=[30] * 2,
+                batch_size=batch_size,
+                input_nodes=input_nodes)
+                #num_workers=4,
+                #worker_init_fn=seed_worker, 
+                #generator=g
             
          
         input_nodes = torch.tensor(all_nodes[full_data.test_mask].tolist()).type(torch.LongTensor)
@@ -368,9 +505,11 @@ def load_graph_DataLoader(cell_types, full_data, seed):
             #num_workers=4,
             #worker_init_fn=seed_worker, 
             #generator=g
-        
-        return train_loader, train_loader2, valid_loader, test_loader, batch_size
-        
+
+        if include_valid:
+            return train_loader, train_loader2, valid_loader, test_loader, batch_size
+        else:
+            return train_loader, train_loader2, test_loader, batch_size
                     
 def data_loader(x, cell_types, train_mask, test_mask_labeled, seed):
     g = torch.Generator()

@@ -134,8 +134,10 @@ def indices_train_test(ind_0, ind_1, cell_types, spike_trains_, indices_to_look_
             test_mask_labeled = torch.tensor([False]*num_total)
             test_mask_labeled[test_idx_labeled] = True
 
-            return ind_train, ind_train_with_session, ind_valid, ind_valid_with_session, ind_test, ind_test_with_session, ind_0_sum_train, ind_1_sum_train, train_mask, valid_mask, test_mask, test_mask_labeled
-
+            if include_valid:
+                return ind_train, ind_train_with_session, ind_valid, ind_valid_with_session, ind_test, ind_test_with_session, ind_0_sum_train, ind_1_sum_train, train_mask, valid_mask, test_mask, test_mask_labeled
+            else:
+                return ind_train, ind_train_with_session, ind_test, ind_test_with_session, ind_0_sum_train, ind_1_sum_train, train_mask, test_mask, test_mask_labeled
 
 
 def weighing(cell_types, train_mask):
@@ -272,7 +274,7 @@ def input_layer_converged(input_layer, tol=1e-2, n_samples=256):
             return torch.min(torch.max(mean, dim=1).values).item() > 1 - tol
         
         
-def save_solution(n_experiment, score_all, train_loss, train_acc, test_score, test_acc, ind_train, ind_test, ind_train_with_session, ind_test_with_session, out_test, pred, batch_y, batch_size, hp, with_weighing, seed, true_inds=None):
+def save_solution(n_experiment, score_all, train_loss, train_acc, test_score, test_acc, confident_scores_acc, ind_train, ind_test, ind_train_with_session, ind_test_with_session, out_test, pred, batch_y, batch_size, hp, with_weighing, seed, true_inds=None):
 
             now = datetime.now()
             dt_string = now.strftime("%d_%m_%Y_%H_%M")
@@ -297,11 +299,13 @@ def save_solution(n_experiment, score_all, train_loss, train_acc, test_score, te
                     pickle.dump(ind_train_with_session, fp)
             with open(folder + "/ind_test_with_session.npy", "wb") as fp: 
                     pickle.dump(ind_test_with_session, fp)
-            
+            with open(folder + "/confident_scores_acc.npy", "wb") as fp: 
+                    pickle.dump(confident_scores_acc, fp)
+                
             details = {}
             details["seed"] = seed
-            details["features"] = "isi histogram + sparsityLayer"
-            details["n_features"] = 100
+            details["features"] = "spike trains chopped 200/50"
+            details["n_features"] = 61
             details["use_graph"] = True
             details["use_directed_graph"] = True
             details["use_edge_weight"] = False

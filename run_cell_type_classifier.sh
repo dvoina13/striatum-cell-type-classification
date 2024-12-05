@@ -8,6 +8,7 @@
 
 #source activate pytorch
 
+#seed_arr=($(seq 1 1 20))
 seed_arr=($(seq 1 1 20))
 batch_arr=(1 5 10 20)
 
@@ -21,6 +22,6 @@ for s in "${seed_arr[@]}"
 do
     echo $s
     #python GNN_classify_test.py --seed=$seed
-    #python main.py --seed=$s
-    python main_sparsityLayer.py --seed=$s
+    python main.py --seed=$s
+    #python main_sparsityLayer.py --seed=$s
 done

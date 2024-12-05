@@ -25,6 +25,8 @@ def train(model, train_loader, train_loader2, test_loader, with_weighing, optimi
             false_negative_j = np.zeros(output_dim)
             score_all = []; test_acc = []
             test_train_acc_to_see = []
+            score_all_confident = []
+            test_acc_confident = []
             
             for epoch in range(500):
                 # Train
@@ -93,7 +95,7 @@ def train(model, train_loader, train_loader2, test_loader, with_weighing, optimi
                     with torch.no_grad():
                         # Forward pass
                         out = model(batch.x.float(), batch.edge_index)
-                       
+                        
                         # Calculate loss 
                         if with_weighing == True:
                             valid_loss = F.cross_entropy(out[batch.test_mask], batch.y[batch.test_mask], weight = w*weights_per_class_ISNS.float())
@@ -102,14 +104,32 @@ def train(model, train_loader, train_loader2, test_loader, with_weighing, optimi
             
                         # Prediction
                         pred = out.argmax(dim=1)
-                      
+                        
+                        out_max = out.max(dim=1)[0]
+                        ind_confident = np.where((out_max[batch.test_mask]>=2))[0]
+                        pred_confident = pred[batch.test_mask][ind_confident]
+                        real_class_confident = batch.y[batch.test_mask][ind_confident]
+
                         print("pred", pred[batch.test_mask])
                         print("real", batch.y[batch.test_mask])
                         print("pred-real", np.abs(pred[batch.test_mask] - batch.y[batch.test_mask]))
-            
+
+                        print("ind_confident", ind_confident)
+                        print("pred_confident", pred_confident)
+                        print("real_class_confident", real_class_confident)
+
+                        print("len pred versus len pred_confident", len(pred[batch.test_mask]), len(pred_confident))
+
                         epoch_val_acc = (pred[batch.test_mask]==batch.y[batch.test_mask]).sum()/(batch.test_mask==True).sum()
+                        epoch_val_acc_confident = (pred_confident==real_class_confident).sum()/len(ind_confident)
+                        print("epoch_val_acc_confident", epoch_val_acc_confident)
                         score = roc_auc_score(batch.y[batch.test_mask], pred[batch.test_mask])
-            
+                        try:
+                            score_confident = roc_auc_score(real_class_confident, pred_confident)
+                        except:
+                            score_confident = None
+                        print("score_confident", score_confident)
+                        
                         if score>0.7:
                             torch.save(model.state_dict(), "GraphSAGE_61_features.pt")
                             
@@ -128,6 +148,10 @@ def train(model, train_loader, train_loader2, test_loader, with_weighing, optimi
             
                 score_all.append(score);
                 test_acc.append(epoch_val_acc)
+
+                score_all_confident.append(score_confident)
+                test_acc_confident.append(epoch_val_acc_confident)
+                
                 # Log testing result after each epoch
                 logs["val_loss"] = valid_loss.item()
                 logs["val_acc"] = epoch_val_acc
@@ -187,7 +211,7 @@ def train(model, train_loader, train_loader2, test_loader, with_weighing, optimi
                 model.train()
                 #scheduler.step()
             
-            return model, score_all, test_acc, test_train_acc_to_see, batch_size
+            return model, score_all, test_acc, test_train_acc_to_see, score_all_confident, test_acc_confident, batch_size
 
 
 
@@ -229,9 +253,10 @@ def test(model, train_loader, train_loader2, test_loader, with_weighing, optimiz
                         #print("pred", pred[batch.test_mask])
                         #print("real", batch.y[batch.test_mask])
                         #print("pred-real", np.abs(pred[batch.test_mask] - batch.y[batch.test_mask]))
-            
+
                         epoch_val_acc = (pred[batch.train_mask]==batch.y[batch.train_mask]).sum()/(batch.train_mask==True).sum()
                         score = roc_auc_score(batch.y[batch.train_mask], pred[batch.train_mask])
+
                         #epoch_val_acc = (pred[batch.test_mask]==batch.y[batch.test_mask]).sum()/(batch.test_mask==True).sum()
                         #score = roc_auc_score(batch.y[batch.test_mask], pred[batch.test_mask])
             
@@ -272,10 +297,26 @@ def test(model, train_loader, train_loader2, test_loader, with_weighing, optimiz
                     print("pred", pred[batch.test_mask])
                     print("real", batch.y[batch.test_mask])
                     print("pred-real", np.abs(pred[batch.test_mask] - batch.y[batch.test_mask]))
-            
+
+                    out_max = out_test.max(dim=1)[0]
+                    ind_confident = np.where((out_max[batch.test_mask]>=0.75))[0]
+                    pred_confident = pred[batch.test_mask][ind_confident]
+                    real_class_confident = batch.y[batch.test_mask][ind_confident]
+
+                    print("pred_confident", pred_confident)
+                    print("real_confident", real_class_confident)
+                    print("pred_confident-real_confident", pred_confident - real_class_confident)
+
+                    print("len pred versus len pred_confident", len(pred[batch.test_mask]), len(pred_confident))
                     epoch_val_acc = (pred[batch.test_mask]==batch.y[batch.test_mask]).sum()/(batch.test_mask==True).sum()
+                    epoch_val_acc_confident = (pred_confident==real_class_confident).sum()/len(ind_confident)
+                    
                     score = roc_auc_score(batch.y[batch.test_mask], pred[batch.test_mask])
-            
+                    try:
+                        score_confident = roc_auc_score(real_class_confident, pred_confident)
+                    except:
+                        score_confident = None
+                        
                     print("test acc", "score", epoch_val_acc.item(), score)
             
             
@@ -283,7 +324,7 @@ def test(model, train_loader, train_loader2, test_loader, with_weighing, optimiz
             test_score = score
             outputs = [out_test, pred[batch.test_mask],  batch.y[batch.test_mask]]
         
-            return train_loss, train_acc, test_score, test_acc, batchsize, outputs
+            return train_loss, train_acc, test_score, test_acc, epoch_val_acc_confident, score_confident, batchsize, outputs
 
         
 def train_with_sparsityLayer_eliminate(args, hp, model, train_loader, train_loader2, valid_loader, test_loader, with_weighing, optimizer, batch_size, seed, target, output_dim=2, lam_init=0.0001, mbsize=64, tol=0.2, start_temperature=10.0, end_temperature=0.01, lookback=10, max_trials=10):
@@ -412,7 +453,7 @@ def train_with_sparsityLayer_select(num_select, args, hp, model, train_loader, t
 
     set_features(new_model, included_inds)
 
-    new_model, train_loss_arr, valid_loss_arr, train_acc_arr, valid_acc_arr, score_all, outputs = fit(new_model, optimizer, with_weighing, train_loader, train_loader2, valid_loader, test_loader, start_temperature, end_temperature, 0, lookback, batch_size, nn.CrossEntropyLoss())
+    new_model, train_loss_arr, valid_loss_arr, train_acc_arr, valid_acc_arr, new_score, outputs = fit(new_model, optimizer, with_weighing, train_loader, train_loader2, valid_loader, test_loader, start_temperature, end_temperature, 0, lookback, batch_size, nn.CrossEntropyLoss())
         
     true_inds = new_model.model_input_layer.get_inds()
     #print(f'done, selected {len(true_inds)} genes')

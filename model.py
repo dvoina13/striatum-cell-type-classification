@@ -8,7 +8,7 @@ def define_model(hp):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     model = GraphSAGE(
-        in_channels=100, #920, #100, #61, #901, #61, #6115, 
+        in_channels=61, #920, #100, #61, #901, #61, #6115, 
         hidden_channels=hp["hidden_dim"],
         num_layers=hp["num_layers"],
         out_channels=2,
