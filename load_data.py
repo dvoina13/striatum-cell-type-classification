@@ -42,19 +42,23 @@ def load_data_spike_trains_cells_speed():
             mice_ids = np.arange(len(loaded_dict))
             spike_trains = []
             cell_types = []
-            
+            spike_trains_multiply = []
+            multiply = 2
+    
             for ind in range(len(mouse_list)):
-                
                 spike_trains.append(np.squeeze(loaded_dict[ind]["spike_trains"]))
                 cell_types += loaded_dict[ind]["cell_types"]
-            
+                    
             spike_trains = np.vstack(spike_trains)
-            
-            
+            spike_trains_multiply = np.repeat(spike_trains, multiply, axis = 0)
+    
             spike_trains_ = []
+            spike_trains_multiply_ = []
             running_speeds_ = []
+            running_speeds_multiply_ = []
             spike_trains_permuted = []
             cell_types = []
+            cell_types_multiply = []
             loaded_average_spikes = []
             experiments = []
             interval = 10000
@@ -63,14 +67,15 @@ def load_data_spike_trains_cells_speed():
             
                 print("MOUSE", ind)
                 cell_types_ = loaded_dict[ind]["cell_types"]
-                for j in range(len(cell_types_)):
+                
+                for j in range(len(cell_types_)):    
                     if cell_types_[j] == "D1":
                         cell_types.append(0)
                     elif cell_types_[j] == "D2":
                         cell_types.append(1)
                     else:    
                         cell_types.append(-10)
-            
+
                 experiments += [ind]*len(cell_types_);
                 loaded_spikes = np.squeeze(loaded_dict[ind]["spike_trains"])
                 running_speed = np.squeeze(loaded_dict[ind]["running_speed"])
@@ -78,10 +83,12 @@ def load_data_spike_trains_cells_speed():
                 print("loaded_spikes.shape", loaded_spikes.shape)
                 loaded_spikes_coarse = []
                 running_speed_coarse = []
+                loaded_spikes_coarse_multiply = []
+                running_speed_coarse_multiply = []
                 for i in range(int(loaded_spikes.shape[1]/interval)):
                     loaded_spikes_coarse.append(loaded_spikes[:,i*interval:(i+1)*interval].sum(1))
                     running_speed_coarse.append(np.ones(len(cell_types_))*running_speed[i*interval:(i+1)*interval].sum())
-                    
+   
                 loaded_spikes_coarse = np.array(loaded_spikes_coarse)
                 loaded_spikes_coarse = np.transpose(loaded_spikes_coarse, (1,0)).squeeze()
                 running_speed_coarse = np.array(running_speed_coarse)
@@ -94,8 +101,9 @@ def load_data_spike_trains_cells_speed():
                 T_len = np.array(loaded_spikes_coarse).shape[1]; div = int(T_len//num_div)
                 print(T_len, num_div, div)
                 partitions = [div*k for k in range(num_div)]
+                
                 for j in range(len(cell_types_)):
-                        loaded_spikes_coarse[j,:] = loaded_spikes_coarse[j,:]#/loaded_spikes_coarse.max()#(loaded_spikes_coarse[j,:] - loaded_spikes_coarse[j, :].mean())/loaded_spikes_coarse[j, :].std()**2
+                        loaded_spikes_coarse[j,:] = loaded_spikes_coarse[j,:] #/loaded_spikes_coarse.max()#(loaded_spikes_coarse[j,:] - loaded_spikes_coarse[j, :].mean())/loaded_spikes_coarse[j, :].std()**2
             
                         spike_count = []
                         for spikes in range(54):
@@ -124,17 +132,19 @@ def load_data_spike_trains_cells_speed():
                 spike_trains_permuted.append(loaded_spikes_coarse_permuted)
             
             cell_types = np.array(cell_types)
+            cell_types_multiply = np.repeat(cell_types, multiply)
             spike_trains_ = np.vstack(spike_trains_)
+            spike_trains_multiply_ = np.repeat(spike_trains_, multiply, axis = 0)
+
             running_speeds_ = np.vstack(running_speeds_)
+            running_speeds_multiply_ =  np.repeat(running_speeds_, multiply, axis = 0)           
             
             spike_trains_permuted = np.vstack(spike_trains_permuted)
             loaded_average_spikes = np.vstack(loaded_average_spikes)
             experiments = np.array(experiments)
 
 
-            return spike_trains_, cell_types, running_speeds_, spike_trains_permuted, loaded_average_spikes, experiments, loaded_dict, all_nwb_paths
-
-
+            return spike_trains_, cell_types, running_speeds_, spike_trains_multiply_, cell_types_multiply, running_speeds_multiply_, spike_trains_permuted, loaded_average_spikes, experiments, loaded_dict, all_nwb_paths
 
 
 def load_data_spike_trains_split_timeseries_cells_speed():
@@ -166,8 +176,7 @@ def load_data_spike_trains_split_timeseries_cells_speed():
             spike_trains = []
             cell_types = []
             
-            for ind in range(len(mouse_list)):
-                
+            for ind in range(len(mouse_list)):   
                 spike_trains.append(np.squeeze(loaded_dict[ind]["spike_trains"]))
                 cell_types += loaded_dict[ind]["cell_types"]
             
@@ -214,6 +223,10 @@ def load_data_spike_trains_split_timeseries_cells_speed():
                     loaded_spikes_coarse.append(loaded_spikes_coarse_[bins_permuted[i]*interval:(bins_permuted[i]+1)*interval,i])
                     running_speed_coarse.append(running_speed[bins_permuted[i]*interval_run:(bins_permuted[i]+1)*interval_run])
 
+                #loaded_spikes_coarse_ = loaded_spikes_coarse_[:int(loaded_spikes_coarse_.shape[0]//interval)*interval,:].reshape(int(loaded_spikes_coarse_.shape[0]//interval), interval, loaded_spikes_coarse_.shape[1])
+                #loaded_spikes_coarse_ = np.moveaxis(loaded_spikes_coarse_, 0, 1)
+                #loaded_spikes_coarse_ = loaded_spikes_coarse_.reshape(loaded_spikes_coarse_.shape[0], loaded_spikes_coarse_.shape[1]*loaded_spikes_coarse_.shape[2])            
+                    
                 loaded_spikes_coarse = np.array(loaded_spikes_coarse)
                 #loaded_spikes_coarse = np.transpose(loaded_spikes_coarse, (1,0)).squeeze()
                 running_speed_coarse = np.array(running_speed_coarse)
@@ -263,7 +276,6 @@ def load_data_spike_trains_split_timeseries_cells_speed():
             spike_trains_permuted = np.vstack(spike_trains_permuted)
             loaded_average_spikes = np.vstack(loaded_average_spikes)
             experiments = np.array(experiments)
-
 
             return spike_trains_, cell_types, running_speeds_, spike_trains_permuted, loaded_average_spikes, experiments, loaded_dict, all_nwb_paths
 
@@ -348,8 +360,158 @@ def load_graph(all_nwb_paths, loaded_dict, cell_types):
         edge_weights2 = torch.from_numpy(edge_weights2)
 
         return Graph_all, Directed_Graph_all, edge_weights, edge_weights2, ind_0, ind_1, indices_for_new_session, mice
-    
 
+
+def load_graph_multiplied(all_nwb_paths, loaded_dict, cell_types, multiply = 2):
+
+        cell_types = np.repeat(cell_types, multiply)
+
+        i = 0
+        Graph_all = []
+        Directed_Graph_all = [];
+        edge_weights = [];
+        edge_weights2 = []
+        indices_for_new_session = []
+        ind_0 = []; ind_1 = [];
+        mice = [];
+
+        for ind, f in enumerate(all_nwb_paths):
+            print(ind)
+        
+            file1 = "/Users/dorisvoina/Desktop/work_stuff/P3_GNNs/code_ocean/simple_correlations/result_peak_mouse_" + f[8:-4] + ".npy"
+            print(file1)
+            result_peaks = np.load(file1, allow_pickle=True)
+            result_peaks = result_peaks.item()
+        
+            file2 = "/Users/dorisvoina/Desktop/work_stuff/P3_GNNs/code_ocean/all_edges_ecephys_" + f[8:-4] + "_nwb.npy"
+            edge_dict = np.load(file2, allow_pickle=True)
+            
+            mouse = MouseNetwork(loaded_dict[ind])
+            print("number of cells", mouse.number_of_cells_multiply)
+            mouse.find_connectivity_multiplied(result_peaks, edge_dict)
+            mice.append(mouse)
+        
+            mapping = {}
+            for j in range(len(mouse.graph.nodes)): mapping[list(mouse.graph.nodes)[j]] = j+i
+            graph_int = nx.relabel_nodes(mouse.graph, mapping, copy=True)
+            edges = np.array([list(list(graph_int.edges)[k]) for k in range(len(list(graph_int.edges)))])
+            Graph_all.append(edges)
+            
+            graph_int_dir = nx.relabel_nodes(mouse.directed_graph, mapping, copy=True)
+            directed_edges = np.array([list(list(graph_int_dir.edges)[k]) for k in range(len(list(graph_int_dir.edges)))])
+            Directed_Graph_all.append(directed_edges)
+        
+            for pair in directed_edges:
+                edge_info = mouse.directed_graph.get_edge_data(pair[0]-i, pair[1]-i, default=None)
+                edge_weights.append(edge_info["weight"])
+                edge_weights2.append(mouse.edge_weights2[(pair[0]-i, pair[1]-i)])
+                
+            indices_for_new_session.append(i)
+            list1 = list(np.where(cell_types[i:i+len(list(mouse.graph.nodes))][mouse.graph.nodes]==0)[0])
+            list2 = list(np.where(cell_types[i:i+len(list(mouse.graph.nodes))][mouse.graph.nodes]==1)[0])
+            
+            #if (list1 ==[] or list2 == []) and (list1 !=[] or list2 != []):
+            if list1!=[]:
+                ind_0.append(list(i + np.array(list1)))
+            if list2 !=[]:
+                ind_1.append(list(i + np.array(list2)))
+            
+            i += len(list(mouse.graph.nodes))
+            print("mouse graph nodes", len(list(mouse.graph.nodes)))
+            print("counter so far", i)
+        
+            print("number of cell types labeled", (cell_types[i-len(list(mouse.graph.nodes)):i][mouse.graph.nodes]!=-10).sum())
+            print("number of cell types labeled 0: ", (cell_types[i-len(list(mouse.graph.nodes)):i][mouse.graph.nodes]==0).sum())
+            print("number of cell types labeled 1: ", (cell_types[i-len(list(mouse.graph.nodes)):i][mouse.graph.nodes]==1).sum())
+        
+            print("ind_0", ind_0)
+            print("ind_1", ind_1)
+        
+            print(indices_for_new_session)
+        
+        Graph_all = np.concatenate(Graph_all)
+        Directed_Graph_all = np.concatenate(Directed_Graph_all)
+        edge_weights = np.array(edge_weights)
+        edge_weights2 = np.array(edge_weights2)
+        edge_weights2 = np.squeeze(edge_weights2)
+        edge_weights2 = edge_weights2[:,1:]
+
+        Graph_all = torch.from_numpy(Graph_all).transpose(0,1).type(torch.LongTensor)
+        Directed_Graph_all = torch.from_numpy(Directed_Graph_all).transpose(0,1).type(torch.LongTensor)
+        edge_weights = torch.from_numpy(edge_weights)
+        edge_weights2 = torch.from_numpy(edge_weights2)
+
+        return Graph_all, Directed_Graph_all, edge_weights, edge_weights2, ind_0, ind_1, indices_for_new_session, mice
+
+
+def load_isis():
+            mouse_list = ['642481', '648843', '642481', '642480', '642478', '655571', '642480', '655568', '642478', '655568', '666721', '661398', '648845', '661398', '655572', '655565', '666721']
+            all_nwb_paths = ['ecephys_642481_2023-01-24_13-18-13_nwb',
+             'ecephys_648843_2023-02-22_13-55-39_nwb',
+             'ecephys_642481_2023-01-25_11-33-13_nwb',
+             'ecephys_642480_2023-01-26_17-06-40_nwb',
+             'ecephys_642478_2023-01-17_14-38-38_nwb',
+             'ecephys_655571_2023-05-09_13-53-48_nwb',
+             'ecephys_642480_2023-01-25_12-20-15_nwb',
+             'ecephys_655568_2023-05-03_15-21-12_nwb',
+             'ecephys_642478_2023-01-11_11-02-09_nwb',
+             'ecephys_655568_2023-05-01_15-26-47_nwb',
+             'ecephys_666721_2023-05-12_16-15-36_nwb',
+             'ecephys_661398_2023-03-31_17-01-09_nwb',
+             'ecephys_648845_2023-02-23_14-27-33_nwb',
+             'ecephys_661398_2023-04-03_15-47-29_nwb',
+             'ecephys_655572_2023-05-09_15-03-29_nwb',
+             'ecephys_655565_2023-03-31_14-47-36_nwb',
+             'ecephys_666721_2023-05-09_11-01-03_nwb']            
+            
+            with open('saved_dictionary.pkl', 'rb') as f:
+                loaded_dict = pickle.load(f)
+                
+            mice_ids = np.arange(len(loaded_dict))
+            bins = 2
+            mouse_spike_times = np.squeeze(loaded_dict[0]["spike_trains"])
+    
+            T = mouse_spike_times.shape[1]
+            isi_arr = []
+            cell_types = []
+    
+            print("T", T)
+            for ind in range(len(mouse_list)):   
+                mouse_spike_times = np.squeeze(loaded_dict[ind]["spike_trains"])
+                cell_types_ = loaded_dict[ind]["cell_types"]
+                
+                for cell in range(mouse_spike_times.shape[0]):
+                    spike_times = np.where(np.squeeze(mouse_spike_times[cell, :int(T//2)]))[0]
+                    if len(spike_times) > 1:
+                        ISI1 = np.diff(spike_times)
+                        h1,v = np.histogram(ISI1, list(np.arange(0,100,1)) + [np.inf], density=True)
+                        isi_arr.append(h1)
+                    else:
+                        isi_arr.append(np.zeros(100))
+                        
+                    spike_times = np.where(np.squeeze(mouse_spike_times[cell, int(T//2):]))[0]
+                    if len(spike_times) > 1:
+                        ISI2 = np.diff(spike_times)
+                        h2,v = np.histogram(ISI2, list(np.arange(0,100,1)) + [np.inf], density=True)
+                        isi_arr.append(h2)
+                    else:
+                        isi_arr.append(np.zeros(100))
+                        
+                    if cell_types_[cell] == "D1":
+                        cell_types.append(0)
+                        cell_types.append(0)
+                    elif cell_types_[cell] == "D2":
+                        cell_types.append(1)
+                        cell_types.append(1)
+                    else:    
+                        cell_types.append(-10)
+                        cell_types.append(-10)
+                        
+            isi_arr = np.vstack(isi_arr)
+            cell_types = np.array(cell_types)
+    
+            return isi_arr, cell_types
+            
 def load_filters_waveforms_isis():
 
             spike_filters = np.load("spike_filters.npy")

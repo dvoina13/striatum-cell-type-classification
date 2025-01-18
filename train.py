@@ -72,7 +72,7 @@ def train(model, train_loader, train_loader2, test_loader, with_weighing, optimi
                     with  torch.no_grad():
                         pred = out.argmax(dim=1)
                         epoch_train_acc = (pred[batch.train_mask] == batch.y[batch.train_mask]).sum()/batch.train_mask.sum()
-            
+                            
                     test_train_acc_to_see.append(epoch_train_acc)
             
                     # Log training status after each batch
@@ -109,7 +109,7 @@ def train(model, train_loader, train_loader2, test_loader, with_weighing, optimi
                         ind_confident = np.where((out_max[batch.test_mask]>=2))[0]
                         pred_confident = pred[batch.test_mask][ind_confident]
                         real_class_confident = batch.y[batch.test_mask][ind_confident]
-
+                
                         print("pred", pred[batch.test_mask])
                         print("real", batch.y[batch.test_mask])
                         print("pred-real", np.abs(pred[batch.test_mask] - batch.y[batch.test_mask]))
@@ -160,7 +160,8 @@ def train(model, train_loader, train_loader2, test_loader, with_weighing, optimi
                         epoch, logs["val_loss"], logs["val_acc"]
                     )
                 )
-                        
+
+                model.eval()
                 for batch in train_loader2:
                     batchsize = batch.x.shape[0]
                     batch.to(device)
