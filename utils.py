@@ -33,7 +33,7 @@ def indices_train_test(ind_0, ind_1, cell_types, spike_trains_, indices_to_look_
             
             
             if include_valid == False:
-                while len(ind_test)<=45:
+                while len(ind_test)<=70:#45:
                     if class_choice == 0:
                         ind_test += ind_0_permuted[ind_[0]]
                         ind_test_with_session.append(ind_0_permuted[ind_[0]])
@@ -47,7 +47,7 @@ def indices_train_test(ind_0, ind_1, cell_types, spike_trains_, indices_to_look_
             
             else:
                 
-                while len(ind_valid)<=25:
+                while len(ind_valid)<=50:#25:
                     if class_choice == 0:
                         ind_valid += ind_0_permuted[ind_[0]]
                         ind_valid_with_session.append(ind_0_permuted[ind_[0]])
@@ -59,7 +59,7 @@ def indices_train_test(ind_0, ind_1, cell_types, spike_trains_, indices_to_look_
                         ind_[1] += 1
                         class_choice = 0
                         
-                while len(ind_test)<=35:
+                while len(ind_test)<=70:#35:
                     if class_choice == 0:
                         ind_test += ind_0_permuted[ind_[0]]
                         ind_test_with_session.append(ind_0_permuted[ind_[0]])
@@ -70,8 +70,6 @@ def indices_train_test(ind_0, ind_1, cell_types, spike_trains_, indices_to_look_
                         ind_test_with_session.append(ind_1_permuted[ind_[1]])
                         ind_[1] += 1
                         class_choice = 0
-                        
-                        
                         
             ind_train = [ind for ind in labeled_ind if ((ind not in ind_test) and (ind not in ind_valid))]
             ind_train_with_session = [ind_coeff for ind_coeff in ind_0 + ind_1 if (ind_coeff not in ind_test_with_session) and (ind_coeff not in ind_valid_with_session)]
@@ -304,10 +302,10 @@ def save_solution(n_experiment, score_all, train_loss, train_acc, test_score, te
                 
             details = {}
             details["seed"] = seed
-            details["features"] = "spike trains chopped 200/50"
-            details["n_features"] = 61
-            details["use_graph"] = True
-            details["use_directed_graph"] = True
+            details["features"] = "spike trains chopped in 2"
+            details["n_features"] = 100
+            details["use_graph"] = False
+            details["use_directed_graph"] = False
             details["use_edge_weight"] = False
             details["normalize_edge_weight"] = False
             #details["comment"] = "so far we have normalized edge weight"
@@ -317,7 +315,7 @@ def save_solution(n_experiment, score_all, train_loss, train_acc, test_score, te
             details["num_neighbors"] = "[30]*2 (all neighbors)"
             details["num_neighbors_details"] = "for all"
             details["data loader"] = "NeighborLoader"
-            details["model"] = "GraphSAGE"
+            details["model"] = "ANN"
             details["hidden_dims"] = hp["hidden_dim"]
             details["num_layers"] = hp["num_layers"]
             details["dropout"] = [True, 0.1]
